@@ -7,6 +7,9 @@ on:
       - '**.rb'
       - 'README.md'
       - '.github/workflows/test-versions.yml'
+    # Add trigger for tags to catch new releases
+    tags:
+      - 'v*'  # Run for any version tag
   pull_request:
     branches: [ main ]
     paths:
@@ -19,17 +22,48 @@ on:
 jobs:
   test-versions:
     name: Test Version Installation
+    # Run on macOS since this is a Homebrew formula
     runs-on: macos-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for proper version extraction
+
+      # Skip SHA256 checksum verification in brew for faster testing
+      - name: Set Homebrew options
+        run: echo "HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1" >> $GITHUB_ENV
 
       - name: Install latest version
         run: |
+          # When testing a specific release tag, first wait a moment for the formula to be updated
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            echo "Testing release ${{ github.ref_name }}, waiting for formula update..."
+            sleep 30
+          fi
+          
           brew tap oculus-core/gogo
           brew install gogo
-          echo "LATEST_VERSION=$(gogo version | grep Version | awk '{print $2}')" >> $GITHUB_ENV
-          echo "✅ Successfully installed latest version: ${{ env.LATEST_VERSION }}"
+          INSTALLED_VERSION=$(gogo version | grep Version | awk '{print $2}')
+          echo "LATEST_VERSION=$INSTALLED_VERSION" >> $GITHUB_ENV
+          echo "✅ Successfully installed latest version: $INSTALLED_VERSION"
+          
+          # If this is a tag build, verify that the installed version matches the tag
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            TAG_VERSION="${{ github.ref_name }}"
+            # Remove the 'v' prefix if present
+            TAG_VERSION=${TAG_VERSION#v}
+            
+            if [[ "$INSTALLED_VERSION" != "$TAG_VERSION" ]]; then
+              echo "❌ Error: Released version $TAG_VERSION doesn't match installed version $INSTALLED_VERSION"
+              echo "This could indicate the formula hasn't been updated yet."
+              
+              # Continue test but mark as warning
+              echo "::warning::Version mismatch - released: $TAG_VERSION, installed: $INSTALLED_VERSION"
+            else
+              echo "✅ Verified installed version $INSTALLED_VERSION matches release tag $TAG_VERSION"
+            fi
+          fi
 
       - name: Uninstall latest version
         run: brew uninstall gogo
@@ -48,14 +82,53 @@ jobs:
             echo "❌ Installed version $INSTALLED_VERSION is not in the 0.1.x series!"
             exit 1
           fi
+          
+          # For 0.1.x release tags, verify versioned formula is also updated
+          if [[ "${{ github.ref_type }}" == "tag" && "${{ github.ref_name }}" == v0.1.* ]]; then
+            TAG_VERSION="${{ github.ref_name }}"
+            # Remove the 'v' prefix
+            TAG_VERSION=${TAG_VERSION#v}
+            
+            if [[ "$INSTALLED_VERSION" != "$TAG_VERSION" ]]; then
+              echo "❌ Error: Released version $TAG_VERSION doesn't match installed @0.1 version $INSTALLED_VERSION"
+              echo "::warning::Versioned formula mismatch - released: $TAG_VERSION, installed: $INSTALLED_VERSION"
+            else
+              echo "✅ Verified installed @0.1 version $INSTALLED_VERSION matches release tag $TAG_VERSION"
+            fi
+          fi
 
       - name: Test specific version installation
         run: |
           # Create a temporary versions tap
           brew tap-new $USER/testversions
           
-          # Extract a specific version (use the previous release before the latest)
-          SPECIFIC_VERSION="0.1.3"
+          # For release tags, test the previous version
+          # For regular tests, use a known stable version
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            TAG_VERSION="${{ github.ref_name }}"
+            TAG_VERSION=${TAG_VERSION#v}
+            
+            # Extract the version components
+            MAJOR=$(echo $TAG_VERSION | cut -d. -f1)
+            MINOR=$(echo $TAG_VERSION | cut -d. -f2)
+            PATCH=$(echo $TAG_VERSION | cut -d. -f3)
+            
+            # Calculate previous version - normally go back one patch level
+            if [[ "$PATCH" -gt "0" ]]; then
+              PREV_PATCH=$((PATCH - 1))
+              SPECIFIC_VERSION="${MAJOR}.${MINOR}.${PREV_PATCH}"
+            else
+              # Fallback to a known stable version if we can't go back
+              SPECIFIC_VERSION="0.1.3"
+            fi
+            
+            echo "Using previous version $SPECIFIC_VERSION for testing"
+          else
+            # Default to a known stable version for regular tests
+            SPECIFIC_VERSION="0.1.3"
+          fi
+          
+          # Extract and install the specific version
           brew extract --version=$SPECIFIC_VERSION oculus-core/gogo/gogo $USER/testversions
           
           # Uninstall current version
