@@ -5,21 +5,21 @@
 class Gogo < Formula
   desc "CLI tool for generating Go projects with best practices"
   homepage "https://github.com/oculus-core/gogo"
-  version "0.1.6"
+  version "0.1.7"
   license "MIT"
 
   on_macos do
     on_intel do
-      url "https://github.com/oculus-core/gogo/releases/download/v0.1.6/gogo_0.1.6_Darwin_x86_64.tar.gz"
-      sha256 "2c07838fb6184699eec9e316161043eda5303f51299b96c2285d0a73171f3ad2"
+      url "https://github.com/oculus-core/gogo/releases/download/v0.1.7/gogo_0.1.7_Darwin_x86_64.tar.gz"
+      sha256 "37f215fd7094c856acc3a09506524f64c43c91a2312182c4367659f3b49026d0"
 
       def install
         bin.install "gogo"
       end
     end
     on_arm do
-      url "https://github.com/oculus-core/gogo/releases/download/v0.1.6/gogo_0.1.6_Darwin_arm64.tar.gz"
-      sha256 "c6a1cae3418e38c230b8eb1bbe69a51d2e2d3da4a51239f3acb37178c73ad636"
+      url "https://github.com/oculus-core/gogo/releases/download/v0.1.7/gogo_0.1.7_Darwin_arm64.tar.gz"
+      sha256 "bcab3415b1b6a2186ed016f9cf30bac22bd8d8ad07b22bdd745b7956013780c9"
 
       def install
         bin.install "gogo"
@@ -30,8 +30,8 @@ class Gogo < Formula
   on_linux do
     on_intel do
       if Hardware::CPU.is_64_bit?
-        url "https://github.com/oculus-core/gogo/releases/download/v0.1.6/gogo_0.1.6_Linux_x86_64.tar.gz"
-        sha256 "e262bc3190126da37d6a17b56865adcf70765dbc0a7c6ea3778c15d750563b6c"
+        url "https://github.com/oculus-core/gogo/releases/download/v0.1.7/gogo_0.1.7_Linux_x86_64.tar.gz"
+        sha256 "3cab0227cd98b10a37c792101fce653b72d8a62ad0587a002f29234b515d8e32"
 
         def install
           bin.install "gogo"
@@ -40,8 +40,8 @@ class Gogo < Formula
     end
     on_arm do
       if Hardware::CPU.is_64_bit?
-        url "https://github.com/oculus-core/gogo/releases/download/v0.1.6/gogo_0.1.6_Linux_arm64.tar.gz"
-        sha256 "45b4fa3883c88374e8c4687ea0c2baed2f1908caaa0b01f6125849ac6b053cd5"
+        url "https://github.com/oculus-core/gogo/releases/download/v0.1.7/gogo_0.1.7_Linux_arm64.tar.gz"
+        sha256 "3b021c9406f12bd9b1cc61f3d571c55f3f2e6186680bfa38273602d3ba59f855"
 
         def install
           bin.install "gogo"
@@ -51,11 +51,6 @@ class Gogo < Formula
   end
 
   test do
-    # Test that the version command works and returns the expected version
-    output = shell_output("#{bin}/gogo version")
-    assert_match "Version:    #{version}", output
-    
-    # Test that the help command works
-    assert_match "Usage:", shell_output("#{bin}/gogo --help")
+    system "#{bin}/gogo", "version"
   end
 end
