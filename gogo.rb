@@ -5,21 +5,21 @@
 class Gogo < Formula
   desc "CLI tool for generating Go projects with best practices"
   homepage "https://github.com/oculus-core/gogo"
-  version "0.1.4"
+  version "0.1.5"
   license "MIT"
 
   on_macos do
     on_intel do
-      url "https://github.com/oculus-core/gogo/releases/download/v0.1.4/gogo_0.1.4_Darwin_x86_64.tar.gz"
-      sha256 "a17a221029902f6845684b5a3cf2224740ad94440797b4433098eea2d7663f77"
+      url "https://github.com/oculus-core/gogo/releases/download/v0.1.5/gogo_0.1.5_Darwin_x86_64.tar.gz"
+      sha256 "ef1c11b417fbfb0024eab218f1613efbfaf2d84eb659ba57ba5c0fa88e459412"
 
       def install
         bin.install "gogo"
       end
     end
     on_arm do
-      url "https://github.com/oculus-core/gogo/releases/download/v0.1.4/gogo_0.1.4_Darwin_arm64.tar.gz"
-      sha256 "b8a9aa98373252b150c316057eeabbbbd2c826e0354b786765c3f71596075f75"
+      url "https://github.com/oculus-core/gogo/releases/download/v0.1.5/gogo_0.1.5_Darwin_arm64.tar.gz"
+      sha256 "f24cf756121f4e0a4c59bbdf7291f1b04a6121b101519a35da396ab2eb73bfca"
 
       def install
         bin.install "gogo"
@@ -30,8 +30,8 @@ class Gogo < Formula
   on_linux do
     on_intel do
       if Hardware::CPU.is_64_bit?
-        url "https://github.com/oculus-core/gogo/releases/download/v0.1.4/gogo_0.1.4_Linux_x86_64.tar.gz"
-        sha256 "3db087080cc4cdf1840458bd94b50a29e5f2e2cdfd0e00ef1ea4869d38978dfd"
+        url "https://github.com/oculus-core/gogo/releases/download/v0.1.5/gogo_0.1.5_Linux_x86_64.tar.gz"
+        sha256 "9455a374d7bfc01b96583d78e5f4226ec57e320c62a39d03320d3dfefe81f52c"
 
         def install
           bin.install "gogo"
@@ -40,8 +40,8 @@ class Gogo < Formula
     end
     on_arm do
       if Hardware::CPU.is_64_bit?
-        url "https://github.com/oculus-core/gogo/releases/download/v0.1.4/gogo_0.1.4_Linux_arm64.tar.gz"
-        sha256 "df6e71f293cf6af78f6e3b9cac764b9c9aa95b8055d06fd468264777883f2221"
+        url "https://github.com/oculus-core/gogo/releases/download/v0.1.5/gogo_0.1.5_Linux_arm64.tar.gz"
+        sha256 "5a5f417e43dd8d99b60f8f9dadccd48ba582446404eed4d5aad2d5313b785ba5"
 
         def install
           bin.install "gogo"
