@@ -5,21 +5,21 @@
 class Gogo < Formula
   desc "A powerful CLI tool for generating Go projects with best practices"
   homepage "https://github.com/oculus-core/gogo"
-  version "0.1.0"
+  version "0.1.1"
   license "MIT"
 
   on_macos do
     on_intel do
-      url "https://github.com/oculus-core/gogo/releases/download/v0.1.0/gogo_0.1.0_Darwin_x86_64.tar.gz"
-      sha256 "545f5e10a41ee999ccd6a5c9dcaa17ddb4a9aa1e24e7f329411dffe105775279"
+      url "https://github.com/oculus-core/gogo/releases/download/v0.1.1/gogo_0.1.1_Darwin_x86_64.tar.gz"
+      sha256 "178bd9572425399071227a3fdc59b63888722602e836125abf33e3805828722e"
 
       def install
         bin.install "gogo"
       end
     end
     on_arm do
-      url "https://github.com/oculus-core/gogo/releases/download/v0.1.0/gogo_0.1.0_Darwin_arm64.tar.gz"
-      sha256 "d045289866cacdbc55e88e13d37c14b1ebbc867c60013040db9ad1b60e788b13"
+      url "https://github.com/oculus-core/gogo/releases/download/v0.1.1/gogo_0.1.1_Darwin_arm64.tar.gz"
+      sha256 "2625d4a703e327beec37178ae4d24d1e7e72eb8c7ade5b8c0495172712c0e01c"
 
       def install
         bin.install "gogo"
@@ -30,8 +30,8 @@ class Gogo < Formula
   on_linux do
     on_intel do
       if Hardware::CPU.is_64_bit?
-        url "https://github.com/oculus-core/gogo/releases/download/v0.1.0/gogo_0.1.0_Linux_x86_64.tar.gz"
-        sha256 "db575c2ee7d6de27d8914fcd93d9d6cfa9ca439cb3749666edd4590b140ccdfe"
+        url "https://github.com/oculus-core/gogo/releases/download/v0.1.1/gogo_0.1.1_Linux_x86_64.tar.gz"
+        sha256 "77aff805f96b78998c50ecf8a58a080ba517900acb2a6220833127c25f739035"
 
         def install
           bin.install "gogo"
@@ -40,8 +40,8 @@ class Gogo < Formula
     end
     on_arm do
       if Hardware::CPU.is_64_bit?
-        url "https://github.com/oculus-core/gogo/releases/download/v0.1.0/gogo_0.1.0_Linux_arm64.tar.gz"
-        sha256 "c12ba5b1cf77819ccbac40246cebb202c958d36f2dbf475ef1a3c431c6594451"
+        url "https://github.com/oculus-core/gogo/releases/download/v0.1.1/gogo_0.1.1_Linux_arm64.tar.gz"
+        sha256 "3c6b5ac7d7b8954cfdc8c98314c0a8b5b8c6a0ef720b84ed12bafe108c4a1ea0"
 
         def install
           bin.install "gogo"
