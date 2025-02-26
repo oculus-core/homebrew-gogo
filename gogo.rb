@@ -51,6 +51,11 @@ class Gogo < Formula
   end
 
   test do
-    system "#{bin}/gogo", "version"
+    # Test that the version command works and returns the expected version
+    output = shell_output("#{bin}/gogo version")
+    assert_match "Version:    #{version}", output
+    
+    # Test that the help command works
+    assert_match "Usage:", shell_output("#{bin}/gogo --help")
   end
 end

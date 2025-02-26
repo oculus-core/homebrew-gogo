@@ -58,6 +58,14 @@ class GogoAT01 < Formula
   depends_on :macos => :catalina
 
   test do
-    system "#{bin}/gogo", "version"
+    # Test that the version command works and returns the expected version
+    output = shell_output("#{bin}/gogo version")
+    assert_match "Version:    #{version}", output
+    
+    # Test that the help command works
+    assert_match "Usage:", shell_output("#{bin}/gogo --help")
+    
+    # Verify this is a 0.1.x version
+    assert_match /^0\.1\./, version
   end
 end
