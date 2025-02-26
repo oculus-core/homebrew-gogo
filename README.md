@@ -16,8 +16,20 @@ You can install Gogo using Homebrew:
 # Add the tap
 brew tap oculus-core/gogo
 
-# Install gogo
+# Install latest version
 brew install gogo
+```
+
+### Installing Specific Versions
+
+You can install specific versions of Gogo using one of the following methods:
+
+```bash
+# Install the latest 0.1.x version
+brew install oculus-core/gogo/gogo@0.1
+
+# Install a specific version (e.g., v0.1.3)
+brew install https://raw.githubusercontent.com/oculus-core/homebrew-gogo/v0.1.3/gogo.rb
 ```
 
 ## Usage
