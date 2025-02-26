@@ -64,9 +64,19 @@ jobs:
               echo "✅ Verified installed version $INSTALLED_VERSION matches release tag $TAG_VERSION"
             fi
           fi
+        shell: /bin/bash -e {0}
+        env:
+          HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
+          HOMEBREW_NO_AUTO_UPDATE: 1
+          HOMEBREW_NO_ENV_HINTS: 1
 
       - name: Uninstall latest version
         run: brew uninstall gogo
+        shell: /bin/bash -e {0}
+        env:
+          HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
+          HOMEBREW_NO_AUTO_UPDATE: 1
+          HOMEBREW_NO_ENV_HINTS: 1
 
       - name: Install 0.1.x version series
         run: |
@@ -96,6 +106,11 @@ jobs:
               echo "✅ Verified installed @0.1 version $INSTALLED_VERSION matches release tag $TAG_VERSION"
             fi
           fi
+        shell: /bin/bash -e {0}
+        env:
+          HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
+          HOMEBREW_NO_AUTO_UPDATE: 1
+          HOMEBREW_NO_ENV_HINTS: 1
 
       - name: Test specific version installation
         run: |
@@ -128,18 +143,24 @@ jobs:
             SPECIFIC_VERSION="0.1.3"
           fi
           
-          # Extract and install the specific version
-          brew extract --version=$SPECIFIC_VERSION oculus-core/gogo/gogo $USER/testversions
-          
-          # Uninstall current version
-          brew uninstall gogo@0.1
-          
-          # Install specific version
-          brew install gogo@$SPECIFIC_VERSION
+          # Extract and install the specific version - only if needed
+          if ! brew list gogo@$SPECIFIC_VERSION 2>/dev/null; then
+            echo "Extracting and installing gogo@$SPECIFIC_VERSION"
+            brew extract --version=$SPECIFIC_VERSION oculus-core/gogo/gogo $USER/testversions
+            
+            # Safely uninstall the current version if present
+            brew list gogo@0.1 2>/dev/null && brew unlink gogo@0.1 2>/dev/null && brew uninstall gogo@0.1 2>/dev/null || true
+            
+            # Install specific version
+            brew install gogo@$SPECIFIC_VERSION
+          else
+            echo "gogo@$SPECIFIC_VERSION is already installed"
+            brew link --overwrite gogo@$SPECIFIC_VERSION 2>/dev/null
+          fi
           
           # Verify correct version is installed
           INSTALLED_VERSION=$(gogo version | grep Version | awk '{print $2}')
-          echo "✅ Successfully installed specific version: $INSTALLED_VERSION"
+          echo "✅ Successfully installed/activated specific version: $INSTALLED_VERSION"
           
           if [[ "$INSTALLED_VERSION" != "$SPECIFIC_VERSION" ]]; then
             echo "❌ Expected version $SPECIFIC_VERSION but got $INSTALLED_VERSION"
@@ -148,34 +169,49 @@ jobs:
           
           # Verify we can execute commands with this version
           gogo --help
+        shell: /bin/bash -e {0}
+        env:
+          HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
+          HOMEBREW_NO_AUTO_UPDATE: 1
+          HOMEBREW_NO_ENV_HINTS: 1
 
       - name: Test version switching
         run: |
-          # First, unlink any currently linked gogo versions to avoid conflicts
-          brew unlink gogo@0.1.3 || true
-          brew unlink gogo@0.1 || true
-          brew unlink gogo || true
+          # Unlink only if the version is installed and linked
+          brew list gogo@0.1.3 2>/dev/null && brew unlink gogo@0.1.3 2>/dev/null || true
+          brew list gogo@0.1 2>/dev/null && brew unlink gogo@0.1 2>/dev/null || true
+          brew list gogo 2>/dev/null && brew unlink gogo 2>/dev/null || true
           
-          # Re-install 0.1.x version
-          brew install oculus-core/gogo/gogo@0.1 || brew link --overwrite gogo@0.1
+          # Install or relink the 0.1.x version
+          if brew list gogo@0.1 2>/dev/null; then
+            echo "gogo@0.1 is already installed, linking it"
+            brew link --overwrite gogo@0.1 2>/dev/null
+          else
+            echo "Installing gogo@0.1"
+            brew install oculus-core/gogo/gogo@0.1
+          fi
           
           # Install specific version if not already installed
-          brew install gogo@0.1.3 || true
+          if brew list gogo@0.1.3 2>/dev/null; then
+            echo "gogo@0.1.3 is already installed"
+          else
+            echo "Installing gogo@0.1.3"
+            brew install gogo@0.1.3 2>/dev/null || brew link --overwrite gogo@0.1.3 2>/dev/null
+          fi
           
-          # Should have both versions installed now
+          # Show installed versions - use a cleaner format
           echo "Installed gogo versions:"
           brew list | grep gogo
           
-          # Make sure 0.1 version is linked first
-          brew link --overwrite gogo@0.1
+          # Ensure 0.1 version is active before switching
+          brew link --overwrite gogo@0.1 2>/dev/null
           CURRENT_VERSION=$(gogo version | grep Version | awk '{print $2}')
           echo "Current version: $CURRENT_VERSION"
           
-          # Unlink current version
-          brew unlink gogo@0.1
-          
-          # Link specific version
-          brew link gogo@0.1.3
+          # Switch to specific version
+          echo "Switching from gogo@0.1 to gogo@0.1.3..."
+          brew unlink gogo@0.1 2>/dev/null
+          brew link gogo@0.1.3 2>/dev/null
           
           # Verify correct version is active
           ACTIVE_VERSION=$(gogo version | grep Version | awk '{print $2}')
@@ -189,4 +225,6 @@ jobs:
           echo "✅ Successfully switched to version 0.1.3" 
         shell: /bin/bash -e {0}
         env:
-          HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1 
+          HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1
+          HOMEBREW_NO_AUTO_UPDATE: 1
+          HOMEBREW_NO_ENV_HINTS: 1 
