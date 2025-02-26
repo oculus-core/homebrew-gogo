@@ -1,0 +1,22 @@
+# Homebrew specific
+*.bottle.tar.gz
+*.bottle.json
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Editor specific
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Ruby specific
+/.bundle/
+/vendor/bundle
+/.yardoc
+/_yardoc/
+/doc/
+/rdoc/ 
