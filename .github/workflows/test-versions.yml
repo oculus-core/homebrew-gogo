@@ -151,11 +151,25 @@ jobs:
 
       - name: Test version switching
         run: |
+          # First, unlink any currently linked gogo versions to avoid conflicts
+          brew unlink gogo@0.1.3 || true
+          brew unlink gogo@0.1 || true
+          brew unlink gogo || true
+          
           # Re-install 0.1.x version
-          brew install oculus-core/gogo/gogo@0.1
+          brew install oculus-core/gogo/gogo@0.1 || brew link --overwrite gogo@0.1
+          
+          # Install specific version if not already installed
+          brew install gogo@0.1.3 || true
           
           # Should have both versions installed now
+          echo "Installed gogo versions:"
           brew list | grep gogo
+          
+          # Make sure 0.1 version is linked first
+          brew link --overwrite gogo@0.1
+          CURRENT_VERSION=$(gogo version | grep Version | awk '{print $2}')
+          echo "Current version: $CURRENT_VERSION"
           
           # Unlink current version
           brew unlink gogo@0.1
@@ -165,9 +179,14 @@ jobs:
           
           # Verify correct version is active
           ACTIVE_VERSION=$(gogo version | grep Version | awk '{print $2}')
+          echo "Active version after switching: $ACTIVE_VERSION"
+          
           if [[ "$ACTIVE_VERSION" != "0.1.3" ]]; then
             echo "❌ Expected version 0.1.3 after switching but got $ACTIVE_VERSION"
             exit 1
           fi
           
           echo "✅ Successfully switched to version 0.1.3" 
+        shell: /bin/bash -e {0}
+        env:
+          HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 1 
