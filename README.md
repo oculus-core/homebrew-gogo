@@ -28,8 +28,22 @@ You can install specific versions of Gogo using one of the following methods:
 # Install the latest 0.1.x version
 brew install oculus-core/gogo/gogo@0.1
 
-# Install a specific version (e.g., v0.1.3)
-brew install https://raw.githubusercontent.com/oculus-core/homebrew-gogo/v0.1.3/gogo.rb
+# Install a specific version (e.g., v0.1.3):
+brew tap-new $USER/versions
+brew extract --version=0.1.3 oculus-core/gogo/gogo $USER/versions
+brew install gogo@0.1.3
+```
+
+### Switching Between Versions
+
+If you have multiple versions installed, you can switch between them:
+
+```bash
+# Unlink the current version
+brew unlink gogo
+
+# Link a specific version
+brew link gogo@0.1
 ```
 
 ## Usage
