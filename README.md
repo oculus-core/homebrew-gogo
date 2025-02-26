@@ -1,5 +1,7 @@
 # Homebrew Tap for Gogo
 
+[![Test Version Installation](https://github.com/oculus-core/homebrew-gogo/actions/workflows/test-versions.yml/badge.svg)](https://github.com/oculus-core/homebrew-gogo/actions/workflows/test-versions.yml)
+
 This repository contains the Homebrew formula for [Gogo](https://github.com/oculus-core/gogo), a powerful CLI tool for generating Go projects with best practices.
 
 ## Links
