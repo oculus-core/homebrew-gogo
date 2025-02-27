@@ -6,21 +6,21 @@ require_relative "Custom/gogo_versioning"
 class GogoAT01 < Formula
   desc "CLI tool for generating Go projects with best practices (v0.1 series)"
   homepage "https://github.com/oculus-core/gogo"
-  version "0.1.10"
+  version "0.1.0"
   license "MIT"
 
   on_macos do
     on_intel do
-      url "https://github.com/oculus-core/gogo/releases/download/v0.1.10/gogo_0.1.10_Darwin_x86_64.tar.gz"
-      sha256 "8aa5bc1b4e6a4372e475c3a8f9730963366571b7e461dca98a062121298108e3"
+      url "https://github.com/oculus-core/gogo/releases/download/v0.1.0/gogo_0.1.0_Darwin_x86_64.tar.gz"
+      sha256 "708ab641f39a49c28b4db170947190201f7f05052253b976b83fa52cdf87e16e"
 
       def install
         bin.install "gogo"
       end
     end
     on_arm do
-      url "https://github.com/oculus-core/gogo/releases/download/v0.1.10/gogo_0.1.10_Darwin_arm64.tar.gz"
-      sha256 "aa42c9d8c579b46c73d73c36ba6caedc8fd3adbaed793196ec471325733e94ef"
+      url "https://github.com/oculus-core/gogo/releases/download/v0.1.0/gogo_0.1.0_Darwin_arm64.tar.gz"
+      sha256 "8d93733abe515c1c401a1fb14f2d021517206be3a44c2b07aa330cb956775cf7"
 
       def install
         bin.install "gogo"
@@ -31,8 +31,8 @@ class GogoAT01 < Formula
   on_linux do
     on_intel do
       if Hardware::CPU.is_64_bit?
-        url "https://github.com/oculus-core/gogo/releases/download/v0.1.10/gogo_0.1.10_Linux_x86_64.tar.gz"
-        sha256 "4058e3ab0974b3aa9c8aa25d19fddd9c4200db033290887a47bdd93c47bfb785"
+        url "https://github.com/oculus-core/gogo/releases/download/v0.1.0/gogo_0.1.0_Linux_x86_64.tar.gz"
+        sha256 "d131974404301d884af2b38c4658c2dce44b77f2d74007122d6ce771dad22212"
 
         def install
           bin.install "gogo"
@@ -41,8 +41,8 @@ class GogoAT01 < Formula
     end
     on_arm do
       if Hardware::CPU.is_64_bit?
-        url "https://github.com/oculus-core/gogo/releases/download/v0.1.10/gogo_0.1.10_Linux_arm64.tar.gz"
-        sha256 "37d1abce5e1d6c6315468345fe71d150091a914e4a94d0a1d4540c9e26a9e522"
+        url "https://github.com/oculus-core/gogo/releases/download/v0.1.0/gogo_0.1.0_Linux_arm64.tar.gz"
+        sha256 "d586e3e9697df3c5806caab056e3ee33cee22c5dcd43f052231f4c24be4e2be2"
 
         def install
           bin.install "gogo"
