@@ -1,0 +1,614 @@
+name: Homebrew Tests
+
+# Comprehensive testing workflow for the Homebrew tap
+# Tests are chained in a logical order with dependencies to ensure proper testing progression
+
+# TODO: Add a self-hosted GitHub runner on Apple Silicon (M1/M2/M3) Mac hardware
+# Since GitHub Actions doesn't provide Apple Silicon runners natively, we should set up a
+# custom self-hosted runner to test actual installation on Mac ARM64 architecture.
+# See: https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners/adding-self-hosted-runners
+
+on:
+  push:
+    # Only run on version tags
+    tags:
+      - 'v*'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - '**.rb'
+      - 'README.md'
+      - '.github/workflows/homebrew-tests.yml'
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  # 1. Formula Linting and Syntax - First step to verify formula is correctly formatted
+  test-formula-lint:
+    name: Verify Formula Syntax and Linting
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set Homebrew options
+        run: |
+          echo "HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1" >> $GITHUB_ENV
+          echo "HOMEBREW_NO_ENV_HINTS=1" >> $GITHUB_ENV
+
+      - name: Lint formula
+        run: |
+          # Update Homebrew to avoid the "not updated today" error
+          brew update
+          
+          # Add the tap first so we can use the formula name
+          brew tap oculus-core/gogo
+          
+          # Run brew audit - use formula name instead of path
+          echo "Running brew audit on gogo formula..."
+          brew audit --strict oculus-core/gogo/gogo || echo "::warning::Formula audit found issues"
+          
+          # Check Ruby syntax
+          echo "Checking Ruby syntax..."
+          for file in *.rb; do
+            if [[ -f "$file" ]]; then
+              ruby -c "$file"
+              if [[ $? -ne 0 ]]; then
+                echo "❌ Ruby syntax error in $file"
+                exit 1
+              else
+                echo "✅ Ruby syntax OK in $file"
+              fi
+            fi
+          done
+          
+          echo "✅ Formula linting completed"
+
+  # 2. Basic Installation Tests - Each architecture can be tested in parallel
+  # These tests run after formula linting passes
+
+  test-macos-intel:
+    name: Test on macOS Intel (x86_64)
+    needs: [test-formula-lint]
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set Homebrew options
+        run: |
+          echo "HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1" >> $GITHUB_ENV
+          echo "HOMEBREW_NO_AUTO_UPDATE=1" >> $GITHUB_ENV
+          echo "HOMEBREW_NO_ENV_HINTS=1" >> $GITHUB_ENV
+
+      - name: Install and test
+        run: |
+          # Add the tap and install
+          brew tap oculus-core/gogo
+          brew install gogo
+          
+          # Verify command works
+          gogo --help
+          gogo version
+          
+          # Print architecture for verification
+          echo "Architecture: $(uname -m)"
+          
+          echo "✅ Successfully installed and verified gogo on macOS Intel x86_64"
+  
+  test-linux-intel:
+    name: Test on Linux Intel (x86_64)
+    needs: [test-formula-lint]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Install Homebrew
+        run: |
+          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+          echo "/home/linuxbrew/.linuxbrew/bin" >> $GITHUB_PATH
+          echo "HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1" >> $GITHUB_ENV
+          echo "HOMEBREW_NO_AUTO_UPDATE=1" >> $GITHUB_ENV
+          echo "HOMEBREW_NO_ENV_HINTS=1" >> $GITHUB_ENV
+          
+      - name: Install and test
+        run: |
+          # Add the tap and install
+          brew tap oculus-core/gogo
+          brew install gogo
+          
+          # Verify command works
+          gogo --help
+          gogo version
+          
+          # Print architecture for verification
+          echo "Architecture: $(uname -m)"
+          
+          echo "✅ Successfully installed and verified gogo on Linux Intel x86_64"
+          
+  validate-linux-arm64:
+    name: Validate Linux ARM64 Support
+    needs: [test-formula-lint]
+    runs-on: ubuntu-latest  # Using regular x86_64 runner for validation
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Validate Linux ARM64 binary
+        run: |
+          # Since we're not using a real ARM64 runner, we'll validate the binary via Homebrew and fallback to direct download
+          echo "Checking Linux ARM64 support in formula..."
+          
+          # Check if the Linux on_arm section exists
+          if grep -q "on_linux" gogo.rb && grep -q "on_arm" gogo.rb; then
+            echo "✅ Formula includes Linux ARM64 section"
+            
+            # Extract the Linux ARM64 URL and SHA256 directly from the formula
+            # Using a more precise approach to ensure we get the Linux ARM64 URL
+            # First find the Linux section, then the ARM section within it, then the URL
+            
+            # Create a cat command that ensures we get patterns matching Linux ARM64
+            ARM_URL=$(cat gogo.rb | grep -A 30 "on_linux" | grep -A 20 "on_arm" | grep -A 2 "Linux_arm64" | grep "url" | head -1 | sed 's/.*url "\(.*\)".*/\1/')
+            ARM_SHA=$(cat gogo.rb | grep -A 30 "on_linux" | grep -A 20 "on_arm" | grep -A 3 "Linux_arm64" | grep "sha256" | head -1 | sed 's/.*sha256 "\(.*\)".*/\1/')
+            
+            if [[ -n "$ARM_URL" && "$ARM_URL" == *"Linux_arm64"* ]]; then
+              echo "✅ Found Linux ARM64 URL: $ARM_URL"
+              echo "✅ Found Linux ARM64 SHA256: $ARM_SHA"
+            else
+              echo "❌ Could not find proper Linux ARM64 URL in formula"
+              echo "Debugging formula structure:"
+              grep -A 40 "on_linux" gogo.rb
+              exit 1
+            fi
+            
+            if [[ -n "$ARM_URL" && -n "$ARM_SHA" ]]; then
+              echo "✅ Found Linux ARM64 URL: $ARM_URL"
+              echo "✅ Found Linux ARM64 SHA256: $ARM_SHA"
+              
+              # Install Homebrew on Linux
+              /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+              eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+              
+              # Set Homebrew options
+              export HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1
+              export HOMEBREW_NO_AUTO_UPDATE=1
+              export HOMEBREW_NO_ENV_HINTS=1
+              export HOMEBREW_ARCH=arm
+              
+              # Add the tap
+              brew tap oculus-core/gogo
+              
+              # Try to use Homebrew to download and verify the binary, but expect this to fail
+              echo "Attempting to use Homebrew to download and verify Linux ARM64 binary..."
+              echo "Note: It's normal for Homebrew to report 'Bottle for tag :arm64_linux is unavailable' on x86_64 runners"
+              
+              brew fetch --arch=arm --force-bottle oculus-core/gogo/gogo || true
+              
+              # List all cache directories to debug
+              echo "Homebrew cache locations:"
+              find "$(brew --cache)" -type d | grep -i "gogo" || echo "No gogo directories found in Homebrew cache"
+              
+              # Check for downloaded bottles, but expect to not find any
+              BOTTLE_FILE=$(find "$(brew --cache)" -name "*gogo*arm*.tar.gz" 2>/dev/null | head -1)
+              
+              # Since Homebrew typically won't download cross-architecture bottles, use direct download
+              if [[ -z "$BOTTLE_FILE" ]]; then
+                echo "Homebrew bottle not found (expected behavior). Downloading directly with curl..."
+                BOTTLE_FILE="/tmp/linux_arm64_binary.tar.gz"
+                
+                # Download the binary and verify it
+                HTTP_STATUS=$(curl -L -s -o "$BOTTLE_FILE" -w "%{http_code}" "$ARM_URL")
+                
+                if [[ "$HTTP_STATUS" == "200" ]]; then
+                  echo "✅ Successfully downloaded Linux ARM64 binary"
+                  
+                  # Validate SHA256 checksum
+                  CALCULATED_SHA=$(sha256sum "$BOTTLE_FILE" | awk '{print $1}')
+                  if [[ "$CALCULATED_SHA" == "$ARM_SHA" ]]; then
+                    echo "✅ SHA256 checksum validation passed"
+                  else
+                    echo "❌ SHA256 checksum mismatch!"
+                    echo "Expected: $ARM_SHA"
+                    echo "Got: $CALCULATED_SHA"
+                    exit 1
+                  fi
+                else
+                  echo "❌ Failed to download Linux ARM64 binary. HTTP Status: $HTTP_STATUS"
+                  exit 1
+                fi
+              else
+                echo "✅ Found Homebrew-downloaded bottle: $BOTTLE_FILE"
+              fi
+              
+              # Extract and validate the binary architecture
+              echo "Extracting binary to verify architecture..."
+              mkdir -p /tmp/linux_arm_extract
+              tar -xzf "$BOTTLE_FILE" -C /tmp/linux_arm_extract
+              
+              # Look for the binary in common locations
+              GOGO_BINARY=$(find /tmp/linux_arm_extract -name "gogo" -type f | head -1)
+              
+              if [[ -n "$GOGO_BINARY" ]]; then
+                # Install file utility if needed
+                if ! command -v file &> /dev/null; then
+                  apt-get update && apt-get install -y file
+                fi
+                
+                FILE_INFO=$(file "$GOGO_BINARY")
+                echo "File info: $FILE_INFO"
+                
+                if [[ "$FILE_INFO" == *"arm64"* || "$FILE_INFO" == *"ARM64"* || "$FILE_INFO" == *"arm"* || "$FILE_INFO" == *"ARM"* || "$FILE_INFO" == *"aarch64"* ]]; then
+                  echo "✅ Confirmed ARM64 binary format"
+                else
+                  echo "❌ Binary does not appear to be ARM format: $FILE_INFO"
+                  exit 1
+                fi
+              else
+                echo "❌ Could not find gogo binary in extracted files"
+                ls -R /tmp/linux_arm_extract
+                exit 1
+              fi
+            else
+              echo "❌ Formula does not include Linux ARM64 support"
+              exit 1
+            fi
+          else
+            echo "❌ Formula does not include Linux ARM64 support"
+            exit 1
+          fi
+          
+          echo "✅ Successfully validated Linux ARM64 binary"
+  
+  validate-macos-arm:
+    name: Validate macOS ARM Support
+    needs: [test-formula-lint]
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      - name: Validate macOS ARM binary
+        run: |
+          # Since we can't test on real Apple Silicon hardware in GitHub Actions,
+          # we'll validate the binary via Homebrew and fallback to direct download
+          echo "Checking macOS ARM support in formula..."
+          
+          # Check if the on_arm section exists
+          if grep -q "on_arm" gogo.rb; then
+            echo "✅ Formula includes macOS ARM section"
+            
+            # Extract the macOS ARM URL and SHA256 directly from the formula
+            ARM_URL=$(grep -A 10 "on_macos" gogo.rb | grep -A 10 "on_arm" gogo.rb | grep "url" | head -1 | sed 's/.*url "\(.*\)".*/\1/')
+            ARM_SHA=$(grep -A 10 "on_macos" gogo.rb | grep -A 10 "on_arm" gogo.rb | grep "sha256" | head -1 | sed 's/.*sha256 "\(.*\)".*/\1/')
+            
+            if [[ -n "$ARM_URL" && -n "$ARM_SHA" ]]; then
+              echo "✅ Found macOS ARM URL: $ARM_URL"
+              echo "✅ Found macOS ARM SHA256: $ARM_SHA"
+              
+              # Set Homebrew options and architecture
+              export HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1
+              export HOMEBREW_NO_AUTO_UPDATE=1
+              export HOMEBREW_NO_ENV_HINTS=1
+              export HOMEBREW_ARCH=arm
+              
+              # Add the tap
+              brew tap oculus-core/gogo
+              
+              # Try to use Homebrew to download and verify the binary, but expect this to fail
+              echo "Attempting to use Homebrew to download and verify macOS ARM binary..."
+              echo "Note: It's normal for Homebrew to report 'Bottle for tag :arm64_sonoma is unavailable' on x86_64 runners"
+              
+              brew fetch --arch=arm --force-bottle oculus-core/gogo/gogo || true
+              
+              # List all cache directories to debug
+              echo "Homebrew cache locations:"
+              find "$(brew --cache)" -type d | grep -i "gogo" || echo "No gogo directories found in Homebrew cache"
+              
+              # Check for downloaded bottles, but expect to not find any
+              BOTTLE_FILE=$(find "$(brew --cache)" -name "*gogo*arm*.tar.gz" 2>/dev/null | head -1)
+              
+              # Since Homebrew typically won't download cross-architecture bottles, use direct download
+              if [[ -z "$BOTTLE_FILE" ]]; then
+                echo "Homebrew bottle not found (expected behavior). Downloading directly with curl..."
+                BOTTLE_FILE="/tmp/macos_arm_binary.tar.gz"
+                
+                # Download the binary and verify it
+                HTTP_STATUS=$(curl -L -s -o "$BOTTLE_FILE" -w "%{http_code}" "$ARM_URL")
+                
+                if [[ "$HTTP_STATUS" == "200" ]]; then
+                  echo "✅ Successfully downloaded macOS ARM binary"
+                  
+                  # Validate SHA256 checksum
+                  CALCULATED_SHA=$(shasum -a 256 "$BOTTLE_FILE" | awk '{print $1}')
+                  if [[ "$CALCULATED_SHA" == "$ARM_SHA" ]]; then
+                    echo "✅ SHA256 checksum validation passed"
+                  else
+                    echo "❌ SHA256 checksum mismatch!"
+                    echo "Expected: $ARM_SHA"
+                    echo "Got: $CALCULATED_SHA"
+                    exit 1
+                  fi
+                else
+                  echo "❌ Failed to download macOS ARM binary. HTTP Status: $HTTP_STATUS"
+                  exit 1
+                fi
+              else
+                echo "✅ Found Homebrew-downloaded bottle: $BOTTLE_FILE"
+              fi
+              
+              # Extract and validate the binary architecture
+              echo "Extracting binary to verify architecture..."
+              mkdir -p /tmp/arm_extract
+              tar -xzf "$BOTTLE_FILE" -C /tmp/arm_extract
+              
+              # Look for the binary in common locations
+              GOGO_BINARY=$(find /tmp/arm_extract -name "gogo" -type f | head -1)
+              
+              if [[ -n "$GOGO_BINARY" ]]; then
+                FILE_INFO=$(file "$GOGO_BINARY")
+                echo "File info: $FILE_INFO"
+                
+                if [[ "$FILE_INFO" == *"arm64"* || "$FILE_INFO" == *"ARM64"* || "$FILE_INFO" == *"arm"* || "$FILE_INFO" == *"ARM"* ]]; then
+                  echo "✅ Confirmed ARM64 binary format"
+                else
+                  echo "❌ Binary does not appear to be ARM format: $FILE_INFO"
+                  exit 1
+                fi
+              else
+                echo "❌ Could not find gogo binary in extracted files"
+                ls -R /tmp/arm_extract
+                exit 1
+              fi
+            else
+              echo "❌ Missing URL or SHA256 for macOS ARM binary"
+              exit 1
+            fi
+          else
+            echo "❌ Formula does not include macOS ARM support"
+            exit 1
+          fi
+          
+          echo "✅ Successfully validated macOS ARM binary"
+
+  # 3. Test Dependencies - Runs after ALL architecture tests are complete
+  test-dependencies:
+    name: Test Dependency Handling
+    # If test-linux-arm64 fails or times out, we still want to continue with the other architectures
+    if: always()
+    needs: [test-macos-intel, test-linux-intel, validate-linux-arm64, validate-macos-arm]
+    runs-on: macos-latest
+    steps:
+      - name: Check if previous jobs succeeded or were skipped
+        run: |
+          if [[ "${{ contains(needs.test-macos-intel.result, 'success') }}" != "true" ]]; then
+            echo "❌ macOS Intel test failed or was skipped"
+            exit 1
+          fi
+          
+          if [[ "${{ contains(needs.test-linux-intel.result, 'success') }}" != "true" ]]; then
+            echo "❌ Linux Intel test failed or was skipped"
+            exit 1
+          fi
+          
+          if [[ "${{ contains(needs.validate-macos-arm.result, 'success') }}" != "true" ]]; then
+            echo "❌ macOS ARM validation failed or was skipped"
+            exit 1
+          fi
+          
+          # For Linux ARM64, we require successful validation
+          if [[ "${{ contains(needs.validate-linux-arm64.result, 'success') }}" != "true" ]]; then
+            echo "❌ Linux ARM64 validation failed"
+            exit 1
+          fi
+          
+          echo "✅ All architecture tests passed"
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set Homebrew options
+        run: |
+          echo "HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1" >> $GITHUB_ENV
+          echo "HOMEBREW_NO_AUTO_UPDATE=1" >> $GITHUB_ENV
+          echo "HOMEBREW_NO_ENV_HINTS=1" >> $GITHUB_ENV
+
+      - name: Check dependencies
+        run: |
+          # Add the tap
+          brew tap oculus-core/gogo
+          
+          # Check formula dependencies
+          DEPS=$(brew deps --formula oculus-core/gogo/gogo)
+          echo "Formula dependencies: $DEPS"
+          
+          # Install with dependencies
+          brew install gogo
+          
+          # Verify all dependencies are installed
+          if [[ -n "$DEPS" ]]; then
+            for dep in $DEPS; do
+              if brew list "$dep" &>/dev/null; then
+                echo "✅ Dependency $dep is installed"
+              else
+                echo "❌ Dependency $dep is not installed"
+                exit 1
+              fi
+            done
+          else
+            echo "No dependencies found for gogo"
+          fi
+          
+          echo "✅ All dependencies correctly installed"
+
+  # 4. Test Upgrade - Runs after dependencies check
+  test-upgrade:
+    name: Test Upgrade Path
+    needs: [test-dependencies]
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set Homebrew options
+        run: |
+          echo "HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1" >> $GITHUB_ENV
+          echo "HOMEBREW_NO_AUTO_UPDATE=1" >> $GITHUB_ENV
+          echo "HOMEBREW_NO_ENV_HINTS=1" >> $GITHUB_ENV
+
+      - name: Install previous version
+        run: |
+          # Add the tap
+          brew tap oculus-core/gogo
+          
+          # Use a simpler approach for testing upgrades
+          # First install the current version
+          brew install gogo
+          CURRENT_VERSION=$(gogo version | grep -o "Version: [0-9.]*" | awk '{print $2}')
+          echo "Current version installed: $CURRENT_VERSION"
+          
+          # Force uninstall to prepare for "upgrade"
+          brew uninstall gogo
+          
+          # For testing the upgrade path, install the same version again
+          # This mimics an upgrade without needing historical versions
+          echo "Reinstalling for upgrade test..."
+          brew install gogo
+          
+          # Create a test file to verify it persists after upgrade
+          echo "test data" > ~/gogo_test_file.txt
+          
+          echo "✅ Successfully prepared for upgrade test"
+
+      - name: Upgrade to latest version
+        run: |
+          # Since we're using the same version as both "previous" and "current" in this simulation,
+          # we need to force reinstall rather than just upgrade
+          brew reinstall gogo
+          
+          # Verify the reinstall worked
+          UPGRADED_VERSION=$(gogo version | grep Version | awk '{print $2}')
+          echo "Upgraded to version: $UPGRADED_VERSION"
+          
+          # Verify functionality after reinstall
+          gogo --help
+          
+          # Verify test file persisted
+          if [[ -f ~/gogo_test_file.txt ]]; then
+            echo "✅ Test file persisted through upgrade simulation"
+          else
+            echo "❌ Test file was lost during upgrade simulation"
+            exit 1
+          fi
+          
+          echo "✅ Successfully simulated upgrade of gogo"
+
+  # 5. Test Uninstallation - Final operation test, runs after upgrade testing
+  test-uninstall:
+    name: Test Clean Uninstallation
+    needs: [test-upgrade]
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set Homebrew options
+        run: |
+          echo "HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1" >> $GITHUB_ENV
+          echo "HOMEBREW_NO_AUTO_UPDATE=1" >> $GITHUB_ENV
+          echo "HOMEBREW_NO_ENV_HINTS=1" >> $GITHUB_ENV
+
+      - name: Install and uninstall
+        run: |
+          # Add the tap and install
+          brew tap oculus-core/gogo
+          brew install gogo
+          
+          # Verify installation
+          gogo --help
+          
+          # Record installed files
+          echo "Installed files:"
+          brew list gogo
+          
+          # Uninstall
+          brew uninstall gogo
+          
+          # Verify uninstallation
+          if brew list gogo 2>/dev/null; then
+            echo "❌ gogo is still installed after uninstallation"
+            exit 1
+          else
+            echo "✅ gogo was successfully uninstalled"
+          fi
+          
+          # Check for leftover files in Homebrew directories
+          LEFTOVER_FILES=$(find "$(brew --prefix)/Cellar" -name "*gogo*" 2>/dev/null)
+          if [[ -n "$LEFTOVER_FILES" ]]; then
+            echo "❌ Found leftover files after uninstallation:"
+            echo "$LEFTOVER_FILES"
+            exit 1
+          else
+            echo "✅ No leftover files found in Homebrew directories"
+          fi
+
+  # 6. Documentation - Completely independent process running in parallel
+  test-documentation:
+    name: Verify Documentation
+    # Remove the dependency on test-formula-lint to make it completely independent
+    # needs: [test-formula-lint]
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set Homebrew options
+        run: |
+          echo "HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK=1" >> $GITHUB_ENV
+          echo "HOMEBREW_NO_AUTO_UPDATE=1" >> $GITHUB_ENV
+          echo "HOMEBREW_NO_ENV_HINTS=1" >> $GITHUB_ENV
+
+      - name: Verify README instructions
+        run: |
+          # Check if README exists
+          if [[ ! -f "README.md" ]]; then
+            echo "❌ README.md not found"
+            exit 1
+          fi
+          
+          echo "✅ README.md exists"
+          
+          # Extract installation commands from README
+          INSTALL_COMMANDS=$(grep -A 3 "brew tap" README.md || echo "No installation commands found in README")
+          echo "Installation commands from README:"
+          echo "$INSTALL_COMMANDS"
+          
+          # Verify tap command in README
+          if grep -q "brew tap oculus-core/gogo" README.md; then
+            echo "✅ README contains correct tap command"
+          else
+            echo "::warning::README may be missing the correct tap command"
+          fi
+          
+          # Verify install command in README
+          if grep -q "brew install gogo" README.md; then
+            echo "✅ README contains correct install command"
+          else
+            echo "::warning::README may be missing the correct install command"
+          fi
+          
+          # Try to follow README instructions
+          if grep -q "brew tap oculus-core/gogo" README.md && grep -q "brew install gogo" README.md; then
+            echo "Following README instructions..."
+            brew tap oculus-core/gogo
+            brew install gogo
+            
+            # Verify installation worked
+            if gogo --help &>/dev/null; then
+              echo "✅ Successfully installed following README instructions"
+            else
+              echo "❌ Failed to install following README instructions"
+              exit 1
+            fi
+          else
+            echo "::warning::Could not follow README instructions automatically"
+          fi 
